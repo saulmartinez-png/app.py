@@ -22,20 +22,20 @@ thread.start()
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 tf.set_page_config(page_title="Generador de Informes Técnicos", layout="centered")
-tf.title("📝 Generador de Informes Técnicos con Evidencia")
-tf.write("Llene los campos para generar un documento PDF profesional.")
+tf.title("📝 Informe Tecnico ")
+tf.write("Llene los campos!!!")
 
 # --- FORMULARIO DE ENTRADA ---
 with tf.form("datos_informe"):
-    tf.subheader("1. Información General")
-    titulo = tf.text_input("Título del Informe", "Informe de Inspección Técnica")
+    tf.subheader("1.Informacion del Vehiculo")
+    titulo = tf.text_input("ECO", "Escribe el economico de la unidad")
     codigo = tf.text_input("Código/Referencia del Informe", "INF-2026-001")
-    especialista = tf.text_input("Nombre del Especialista", "")
+    especialista = tf.text_input("Nombre del Mecanico", "")
     fecha = tf.date_input("Fecha de la Inspección")
 
     tf.subheader("2. Detalles Técnicos")
-    descripcion = tf.text_area("Descripción del Problema o Situación", "")
-    conclusiones = tf.text_area("Conclusiones y Recomendaciones", "")
+    descripcion = tf.text_area("Descripción de la falla ", "")
+    conclusiones = tf.text_area("Descripcion de trabajo que se realizo para diagnostico ", "")
 
     tf.subheader("3. Evidencia Fotográfica")
     fotos: list[UploadedFile] | UploadedFile | None = tf.file_uploader("Cargar imágenes (puedes seleccionar varias)", type=["jpg", "png", "jpeg"],
