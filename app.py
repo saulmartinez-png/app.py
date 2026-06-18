@@ -22,13 +22,13 @@ thread.start()
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 tf.set_page_config(page_title="Generador de Informes Técnicos", layout="centered")
-tf.title("📝 Informe Tecnico ")
+tf.title("📝 M. DEL ANGEL S.A. de C.V. ")
 tf.write("Llene los campos!!!")
 
 # --- FORMULARIO DE ENTRADA ---
 with tf.form("datos_informe"):
     tf.subheader("1.Informacion del Vehiculo")
-    titulo = tf.text_input("ECO", "Escribe el economico de la unidad")
+    titulo = tf.text_input("ECO", " Eco: ")
     codigo = tf.text_input("Código/Referencia del Informe", "INF-2026-001")
     especialista = tf.text_input("Nombre del Mecanico", "")
     fecha = tf.date_input("Fecha de la Inspección")
