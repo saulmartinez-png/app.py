@@ -28,7 +28,7 @@ tf.write("Llene los campos!!!")
 # --- FORMULARIO DE ENTRADA ---
 with tf.form("datos_informe"):
     tf.subheader("1.Informacion del Vehiculo")
-    titulo = tf.text_input("ECO", " Eco: ")
+    titulo = tf.text_input("ECO")
     codigo = tf.text_input("Código/Referencia del Informe", "INF-2026-001")
     especialista = tf.text_input("Nombre del Mecanico", "")
     fecha = tf.date_input("Fecha de la Inspección")
@@ -51,9 +51,12 @@ with tf.form("datos_informe"):
 
     enviado = tf.form_submit_button("Generar PDF")
 
+# Declarar la variable de texto
+titulos = "Informe de inspección técnica"
+
 
 # --- LÓGICA DE GENERACIÓN DE PDF ---
-def crear_pdf(titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos):
+def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
@@ -70,7 +73,7 @@ def crear_pdf(titulo, codigo, especialista, fecha, descripcion, conclusiones, fo
                                              fontName="Helvetica-Bold", textColor=colors.white)
 
     # Título Principal
-    story.append(Paragraph(titulo.upper(), estilo_titulo))
+    story.append(Paragraph(titulos.upper(), estilo_titulo))
     story.append(Spacer(1, 10))
 
     # Tabla de Metadatos
@@ -78,10 +81,10 @@ def crear_pdf(titulo, codigo, especialista, fecha, descripcion, conclusiones, fo
         [Paragraph("Código:", estilo_tabla_encabezado), Paragraph(codigo, estilo_texto),
          Paragraph("Fecha:", estilo_tabla_encabezado), Paragraph(str(fecha), estilo_texto)],
         [Paragraph("Especialista:", estilo_tabla_encabezado), Paragraph(especialista, estilo_texto),
-         Paragraph("", estilo_texto), Paragraph("", estilo_texto)]
+         Paragraph("ECO:", estilo_tabla_encabezado), Paragraph(titulo, estilo_texto)]
     ]
 
-    tabla_meta = Table(datos_tabla, colWidths=[90, 175, 65, 200])
+    tabla_meta = Table(datos_tabla, colWidths=[90, 175, 65, 100])
     tabla_meta.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (0, 1), colors.HexColor("#1A365D")),
         ('BACKGROUND', (2, 0), (2, 0), colors.HexColor("#1A365D")),
@@ -164,7 +167,7 @@ if enviado:
         tf.error("Por favor, rellene al menos el nombre del especialista y la descripción.")
     else:
         with tf.spinner("Generando archivo PDF..."):
-            pdf_data = crear_pdf(titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos)
+            pdf_data = crear_pdf(titulos,titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos)
 
             tf.success("¡Informe generado con éxito!")
             tf.download_button(
