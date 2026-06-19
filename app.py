@@ -1,6 +1,5 @@
 import streamlit as tf
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -8,18 +7,12 @@ from PIL import Image as PILImage
 import io
 import numpy as np
 
-# Intentar importar el lienzo interactivo
-try:
-    from streamlit_drawable_canvas import st_canvas
-except ImportError:
-    tf.error("Falta instalar la librería del lienzo. Por favor ejecuta: 'pip install streamlit-drawable-canvas'")
-
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 tf.set_page_config(page_title="Generador de Informes Técnicos", layout="centered")
 tf.title("📝 M. DEL ANGEL S.A. de C.V. ")
 tf.write("Llene los campos para generar el reporte técnico.")
 
-# --- EVIDENCIA FOTOGRÁFICA (Fuera del formulario para que sea interactivo) ---
+# --- EVIDENCIA FOTOGRÁFICA ---
 tf.subheader("1. Evidencia Fotográfica")
 fotos = tf.file_uploader("Cargar imágenes (puedes seleccionar varias)", type=["jpg", "png", "jpeg"],
                          accept_multiple_files=True)
@@ -35,26 +28,35 @@ if fotos:
         )
         notas_fotos.append(nota)
 
-# --- LIENZO INTERACTIVO PARA FIRMA DIGITAL (Fuera del formulario) ---
+# --- LIENZO INTERACTIVO PARA FIRMA DIGITAL ---
 tf.subheader("2. Firma Digital del Mecánico")
 tf.caption("Trace su firma con el dedo o el mouse en el recuadro blanco de abajo:")
 
-canvas_result = st_canvas(
-    fill_color="rgba(255, 255, 255, 0)",
-    stroke_width=3,
-    stroke_color="#1A365D",
-    background_color="#FFFFFF",
-    height=150,
-    width=400,
-    drawing_mode="freedraw",
-    key="canvas_firma",
-)
+try:
+    from streamlit_drawable_canvas import st_canvas
 
-# --- FORMULARIO PRINCIPAL DE ENTRADA Y GENERACIÓN ---
+    canvas_result = st_canvas(
+        fill_color="rgba(255, 255, 255, 0)",
+        stroke_width=3,
+        stroke_color="#1A365D",
+        background_color="#FFFFFF",
+        height=150,
+        width=400,
+        drawing_mode="freedraw",
+        key="canvas_firma",
+    )
+except ImportError:
+    tf.error("Falta instalar la librería del lienzo. Por favor ejecuta: 'pip install streamlit-drawable-canvas'")
+
+# --- FORMULARIO PRINCIPAL DE ENTRADA ---
 with tf.form("datos_informe"):
     tf.subheader("3. Información del Vehículo y Reporte")
     titulo = tf.text_input("ECO")
-    # RESTAURADO: Código estático tradicional
+
+    modelo = tf.text_input("Modelo del Vehículo", placeholder="Ej. Kenworth T680 / 2022")
+    placas = tf.text_input("Placas", placeholder="Ej. XX-1234-X")
+    kilometraje = tf.text_input("Kilometraje", placeholder="Ej. 150,000 km")
+
     codigo = tf.text_input("Código/Referencia del Informe", "INF-2026-001")
     especialista = tf.text_input("Nombre del Operador", "")
     fecha = tf.date_input("Fecha de la Inspección")
@@ -65,18 +67,16 @@ with tf.form("datos_informe"):
 
     enviado = tf.form_submit_button("🚀 Procesar y Generar PDF")
 
-# Variable global del título
 titulos = "Informe de inspección técnica"
 
 
 # --- LÓGICA DE GENERACIÓN DE PDF ---
-def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos,
-              firma_img_bytes):
+def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion, conclusiones,
+              fotos, notas_fotos, firma_img_bytes):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
 
-    # Estilos
     styles = getSampleStyleSheet()
     estilo_titulo = ParagraphStyle('TituloStyle', parent=styles['Heading1'], fontSize=24, leading=28,
                                    textColor=colors.HexColor("#1A365D"), spaceAfter=12)
@@ -86,25 +86,34 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
                                   textColor=colors.HexColor("#2D3748"))
     estilo_tabla_encabezado = ParagraphStyle('TableEnc', parent=styles['Normal'], fontSize=10, leading=12,
                                              fontName="Helvetica-Bold", textColor=colors.white)
-    estilo_firma = ParagraphStyle('FirmaStyle', parent=styles['Normal'], fontSize=10, leading=14,
-                                  alignment=1, textColor=colors.HexColor("#2D3748"))
+    estilo_firma = ParagraphStyle('FirmaStyle', parent=styles['Normal'], fontSize=10, leading=14, alignment=1,
+                                  textColor=colors.HexColor("#2D3748"))
 
-    # Título Principal
     story.append(Paragraph(titulos.upper(), estilo_titulo))
     story.append(Spacer(1, 10))
 
-    # Tabla de Metadatos (Encabezado)
     datos_tabla = [
         [Paragraph("Código:", estilo_tabla_encabezado), Paragraph(codigo, estilo_texto),
          Paragraph("Fecha:", estilo_tabla_encabezado), Paragraph(str(fecha), estilo_texto)],
         [Paragraph("Operador:", estilo_tabla_encabezado), Paragraph(especialista, estilo_texto),
-         Paragraph("ECO:", estilo_tabla_encabezado), Paragraph(titulo, estilo_texto)]
+         Paragraph("ECO:", estilo_tabla_encabezado), Paragraph(titulo, estilo_texto)],
+        [Paragraph("Modelo:", estilo_tabla_encabezado), Paragraph(modelo, estilo_texto),
+         Paragraph("Placas:", estilo_tabla_encabezado), Paragraph(placas, estilo_texto)],
+        [Paragraph("Kilometraje:", estilo_tabla_encabezado), Paragraph(kilometraje, estilo_texto),
+         Paragraph("", estilo_tabla_encabezado), Paragraph("", estilo_texto)]
     ]
 
-    tabla_meta = Table(datos_tabla, colWidths=[90, 175, 65, 100])
+    # SOLUCIÓN DEFINITIVA: Convertimos tuplas explícitas para no usar corchetes en los anchos
+    meta_w1 = 90
+    meta_w2 = 175
+    meta_w3 = 65
+    meta_w4 = 100
+    anchos_encabezado = tuple((meta_w1, meta_w2, meta_w3, meta_w4))
+
+    tabla_meta = Table(datos_tabla, colWidths=anchos_encabezado)
     tabla_meta.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, 1), colors.HexColor("#1A365D")),
-        ('BACKGROUND', (2, 0), (2, 1), colors.HexColor("#1A365D")),
+        ('BACKGROUND', (0, 0), (0, 3), colors.HexColor("#1A365D")),
+        ('BACKGROUND', (2, 0), (2, 3), colors.HexColor("#1A365D")),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -112,7 +121,6 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     ]))
     story.append(tabla_meta)
 
-    # --- FIRMA DEBAJO DEL ENCABEZADO ---
     story.append(Spacer(1, 15))
     nombre_operador = especialista if especialista else "Operador"
 
@@ -131,11 +139,13 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
             Paragraph(f"<b>Firma del Operador</b><br/>{nombre_operador}", estilo_firma)
         ]
 
-    datos_firmas = [
-        [celda_firma_operador]
-    ]
+    datos_firmas = [[celda_firma_operador]]
 
-    tabla_firmas = Table(datos_firmas, colWidths=[530])
+    # Ancho de firma blindado
+    firma_w = 530
+    anchos_firmas = tuple((firma_w,))
+
+    tabla_firmas = Table(datos_firmas, colWidths=anchos_firmas)
     tabla_firmas.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
@@ -143,7 +153,6 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     story.append(tabla_firmas)
     story.append(Spacer(1, 15))
 
-    # Cuerpo del Informe (Firma superior)
     story.append(Paragraph("Descripción del Análisis", estilo_sub))
     story.append(Paragraph(descripcion.replace("\n", "<br/>"), estilo_texto))
     story.append(Spacer(1, 15))
@@ -152,7 +161,6 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     story.append(Paragraph(conclusiones.replace("\n", "<br/>"), estilo_texto))
     story.append(Spacer(1, 15))
 
-    # RESTAURADO: Sección de Fotos original en lista simple de dos columnas
     if fotos:
         story.append(Paragraph("Evidencia Fotográfica", estilo_sub))
         story.append(Spacer(1, 5))
@@ -190,7 +198,11 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
             fila_actual.append("")
             tabla_fotos_datos.append(fila_actual)
 
-        tabla_fotos = Table(tabla_fotos_datos, colWidths=[265, 265])
+        # Anchos de fotos blindados
+        foto_w = 265
+        anchos_fotos_blindados = tuple((foto_w, foto_w))
+
+        tabla_fotos = Table(tabla_fotos_datos, colWidths=anchos_fotos_blindados)
         tabla_fotos.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -203,12 +215,11 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     return buffer
 
 
-# --- ACCIÓN DEL FORMULARIO Y CIERRE LÓGICO ---
+# --- ACCIÓN DEL FORMULARIO ---
 if enviado:
     if not especialista or not descripcion:
         tf.error("❌ Por favor, rellene al menos el nombre del Operador y la descripción de la falla.")
     else:
-        # Extraer los bytes de la firma trazada desde el lienzo interactivo
         firma_bytes = None
         if canvas_result.image_data is not None:
             if np.sum(canvas_result.image_data[:, :, 3]) > 0:
@@ -218,7 +229,8 @@ if enviado:
                 firma_bytes.seek(0)
 
         with tf.spinner("Generando archivo PDF..."):
-            pdf_data = crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos, firma_bytes)
+            pdf_data = crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion,
+                                 conclusiones, fotos, notas_fotos, firma_bytes)
 
             tf.success("✔️ ¡Informe procesado con éxito!")
             tf.download_button(
