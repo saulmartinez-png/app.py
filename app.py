@@ -54,6 +54,7 @@ canvas_result = st_canvas(
 with tf.form("datos_informe"):
     tf.subheader("3. Información del Vehículo y Reporte")
     titulo = tf.text_input("ECO")
+    # RESTAURADO: Código estático tradicional
     codigo = tf.text_input("Código/Referencia del Informe", "INF-2026-001")
     especialista = tf.text_input("Nombre del Operador", "")
     fecha = tf.date_input("Fecha de la Inspección")
@@ -111,7 +112,7 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     ]))
     story.append(tabla_meta)
 
-    # --- NUEVA UBICACIÓN: FIRMA JUSTO DEBAJO DEL ENCABEZADO ---
+    # --- FIRMA DEBAJO DEL ENCABEZADO ---
     story.append(Spacer(1, 15))
     nombre_operador = especialista if especialista else "Operador"
 
@@ -140,9 +141,9 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
     ]))
     story.append(tabla_firmas)
-    story.append(Spacer(1, 15))  # Espacio antes de iniciar el Análisis
+    story.append(Spacer(1, 15))
 
-    # Cuerpo del Informe (Ahora va después de la firma)
+    # Cuerpo del Informe (Firma superior)
     story.append(Paragraph("Descripción del Análisis", estilo_sub))
     story.append(Paragraph(descripcion.replace("\n", "<br/>"), estilo_texto))
     story.append(Spacer(1, 15))
@@ -151,7 +152,7 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     story.append(Paragraph(conclusiones.replace("\n", "<br/>"), estilo_texto))
     story.append(Spacer(1, 15))
 
-    # Sección de Fotos (Cuadrícula de 2 columnas)
+    # RESTAURADO: Sección de Fotos original en lista simple de dos columnas
     if fotos:
         story.append(Paragraph("Evidencia Fotográfica", estilo_sub))
         story.append(Spacer(1, 5))
@@ -202,12 +203,12 @@ def crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclus
     return buffer
 
 
-# --- ACCIÓN DEL FORMULARIO ---
+# --- ACCIÓN DEL FORMULARIO Y CIERRE LÓGICO ---
 if enviado:
     if not especialista or not descripcion:
         tf.error("❌ Por favor, rellene al menos el nombre del Operador y la descripción de la falla.")
     else:
-        # Extraer los bytes de la firma del canvas
+        # Extraer los bytes de la firma trazada desde el lienzo interactivo
         firma_bytes = None
         if canvas_result.image_data is not None:
             if np.sum(canvas_result.image_data[:, :, 3]) > 0:
@@ -216,9 +217,8 @@ if enviado:
                 img_firma_pil.save(firma_bytes, format='PNG')
                 firma_bytes.seek(0)
 
-        with tf.spinner("Generando archivo PDF con firma..."):
-            pdf_data = crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos,
-                                 notas_fotos, firma_bytes)
+        with tf.spinner("Generando archivo PDF..."):
+            pdf_data = crear_pdf(titulos, titulo, codigo, especialista, fecha, descripcion, conclusiones, fotos, notas_fotos, firma_bytes)
 
             tf.success("✔️ ¡Informe procesado con éxito!")
             tf.download_button(
