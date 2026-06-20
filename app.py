@@ -6,6 +6,7 @@ from reportlab.lib import colors
 from PIL import Image as PILImage
 import io
 import numpy as np
+import os
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 tf.set_page_config(page_title="Generador de Informes Técnicos", layout="centered")
@@ -28,7 +29,6 @@ if fotos is not None and len(fotos) > 0:
             key=clave_unica
         )
         notas_fotos.append(nota)
-
 
 # --- LIENZO INTERACTIVO PARA FIRMA DIGITAL ---
 tf.subheader("2. Firma Digital del Operador")
@@ -74,13 +74,13 @@ titulos = "Informe de inspección técnica"
 
 # --- LÓGICA DE GENERACIÓN DE PDF ---
 def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion, conclusiones,
-              fotos, notas_fotos, firma_img_bytes):
+              fotos, notas_fotos, firma_img_bytes, logo_bytes):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
 
     styles = getSampleStyleSheet()
-    estilo_titulo = ParagraphStyle('TituloStyle', parent=styles['Heading1'], fontSize=24, leading=28,
+    estilo_titulo = ParagraphStyle('TituloStyle', parent=styles['Heading1'], fontSize=22, leading=26,
                                    textColor=colors.HexColor("#1A365D"), spaceAfter=12)
     estilo_sub = ParagraphStyle('SubStyle', parent=styles['Heading2'], fontSize=14, leading=18,
                                 textColor=colors.HexColor("#2B6CB0"), spaceBefore=12, spaceAfter=6)
@@ -91,8 +91,35 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
     estilo_firma = ParagraphStyle('FirmaStyle', parent=styles['Normal'], fontSize=10, leading=14, alignment=1,
                                   textColor=colors.HexColor("#2D3748"))
 
-    story.append(Paragraph(titulos.upper(), estilo_titulo))
-    story.append(Spacer(1, 10))
+    # --- ENCABEZADO CON LOGOTIPO (PROCESADO SEGURO MEDIANTE BYTES) ---
+    if logo_bytes is not None:
+        try:
+            # Leemos las dimensiones del logo desde los bytes en memoria
+            img_logo_pil = PILImage.open(logo_bytes)
+            log_ancho, log_alto = img_logo_pil.size
+            prop_logo = log_alto / log_ancho
+
+            logo_w = 120.0
+            logo_h = float(logo_w * prop_logo)
+
+            # Reset del puntero para ReportLab
+            logo_bytes.seek(0)
+            logo_pdf = Image(logo_bytes, width=logo_w, height=logo_h)
+
+            tabla_encabezado = Table([[Paragraph(titulos.upper(), estilo_titulo), logo_pdf]], colWidths=(400, 130))
+            tabla_encabezado.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            story.append(tabla_encabezado)
+        except Exception:
+            # Si algo falla con la imagen en memoria, respaldamos mostrando solo el título
+            story.append(Paragraph(titulos.upper(), estilo_titulo))
+    else:
+        story.append(Paragraph(titulos.upper(), estilo_titulo))
+
+    story.append(Spacer(1, 15))
 
     # --- TABLA DE METADATOS ---
     datos_tabla = [
@@ -147,7 +174,6 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             Paragraph(f"<b>Firma del Operador</b><br/>{nombre_operador}", estilo_firma)
         ]
 
-    # Distribución: 360 puntos para texto (~68%) y 170 puntos para la firma (~32%)
     tabla_bloque_final = Table([[bloque_conclusiones, bloque_firma]], colWidths=(360, 170))
     tabla_bloque_final.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -224,11 +250,20 @@ if enviado:
                 img_firma_pil.save(firma_bytes, format='PNG')
                 firma_bytes.seek(0)
 
+        # Cargar el logotipo de forma externa y segura antes de llamar a ReportLab
+        logo_memoria = None
+        if os.path.exists("logo.png"):
+            try:
+                with open("logo.png", "rb") as f:
+                    logo_memoria = io.BytesIO(f.read())
+            except Exception:
+                logo_memoria = None
+
         with tf.spinner("Generando archivo PDF..."):
             pdf_data = crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion,
-                                 conclusiones, fotos, notas_fotos, firma_bytes)
+                                 conclusiones, fotos, notas_fotos, firma_bytes, logo_memoria)
 
-            tf.success("✔️ ¡Informe procesado con éxito!")
+            tf.success("✔️ ¡Informe processedo con éxito!")
             tf.download_button(
                 label="📥 Descargar Informe Técnico (PDF)",
                 data=pdf_data,
