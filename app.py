@@ -76,7 +76,6 @@ titulos = "Informe de inspección técnica"
 def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion, conclusiones,
               fotos, notas_fotos, firma_img_bytes):
     buffer = io.BytesIO()
-    # Márgenes de 40 puntos (~1.4 cm) ideales para aprovechar la página
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
 
@@ -120,42 +119,43 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
     story.append(tabla_meta)
     story.append(Spacer(1, 15))
 
-    # --- TEXTOS DEL REPORTE ---
+    # --- TEXTOS: DESCRIPCIÓN DEL ANÁLISIS ---
     story.append(Paragraph("Descripción del Análisis", estilo_sub))
     story.append(Paragraph(descripcion.replace("\n", "<br/>"), estilo_texto))
     story.append(Spacer(1, 15))
 
-    story.append(Paragraph("Conclusiones y Recomendaciones", estilo_sub))
-    story.append(Paragraph(conclusiones.replace("\n", "<br/>"), estilo_texto))
-    story.append(Spacer(1, 15))
-    # --- SECCIÓN DE FIRMA (MOVIDA AL FINAL) ---
-    nombre_operador = especialista if especialista else "Operador"
+    # --- SECCIÓN MIXTA: CONCLUSIONES (IZQ) Y FIRMA (DER) ---
+    bloque_conclusiones = [
+        Paragraph("Conclusiones y Recomendaciones", estilo_sub),
+        Paragraph(conclusiones.replace("\n", "<br/>"), estilo_texto)
+    ]
 
+    nombre_operador = especialista if especialista else "Operador"
     if firma_img_bytes:
         img_firma_pdf = Image(firma_img_bytes, width=130, height=50)
-        celda_firma_operador = [
+        bloque_firma = [
+            Spacer(1, 15),
             img_firma_pdf,
             Spacer(1, 2),
             Paragraph("___________________________", estilo_firma),
             Paragraph(f"<b>Firma del Operador</b><br/>{nombre_operador}", estilo_firma)
         ]
     else:
-        celda_firma_operador = [
-            Spacer(1, 40),
+        bloque_firma = [
+            Spacer(1, 45),
             Paragraph("___________________________", estilo_firma),
             Paragraph(f"<b>Firma del Operador</b><br/>{nombre_operador}", estilo_firma)
         ]
 
-    datos_firmas = [[celda_firma_operador]]
-    firma_w = 530
-    anchos_firmas = (firma_w,)
-
-    tabla_firmas = Table(datos_firmas, colWidths=anchos_firmas)
-    tabla_firmas.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+    # Distribución: 360 puntos para texto (~68%) y 170 puntos para la firma (~32%)
+    tabla_bloque_final = Table([[bloque_conclusiones, bloque_firma]], colWidths=(360, 170))
+    tabla_bloque_final.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (1, 0), (1, 0), 15),
+        ('RIGHTPADDING', (0, 0), (0, 0), 10),
     ]))
-    story.append(tabla_firmas)
+    story.append(tabla_bloque_final)
+    story.append(Spacer(1, 20))
 
     # --- EVIDENCIA FOTOGRÁFICA ---
     if fotos:
@@ -192,7 +192,7 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
                 fila_actual = []
 
         if fila_actual:
-            fila_actual.append("")  # Celda vacía para completar la fila si es impar
+            fila_actual.append("")
             tabla_fotos_datos.append(fila_actual)
 
         foto_w = 265
@@ -205,11 +205,7 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
         ]))
         story.append(tabla_fotos)
-        story.append(Spacer(1, 15))
 
-
-
-    # Construcción final del documento
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -221,7 +217,6 @@ if enviado:
         tf.error("❌ Por favor, rellene al menos el nombre del Operador y la descripción de la falla.")
     else:
         firma_bytes = None
-        # Comprobar si el canvas tiene trazos válidos
         if canvas_result is not None and canvas_result.image_data is not None:
             if np.sum(canvas_result.image_data[:, :, 3]) > 0:
                 img_firma_pil = PILImage.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
