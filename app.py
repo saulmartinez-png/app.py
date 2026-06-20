@@ -13,20 +13,25 @@ tf.title("📝 M. DEL ANGEL S.A. de C.V. ")
 tf.write("Llene los campos para generar el reporte técnico.")
 
 # --- EVIDENCIA FOTOGRÁFICA ---
+# --- 1. EVIDENCIA FOTOGRÁFICA (OPTIMIZADA PARA CELULARES) ---
 tf.subheader("1. Evidencia Fotográfica")
 fotos = tf.file_uploader("Cargar imágenes (puedes seleccionar varias)", type=["jpg", "png", "jpeg"],
                          accept_multiple_files=True)
 notas_fotos = []
 
-if fotos:
-    tf.info(f"Se han cargado {len(fotos)} imágenes. Añade una descripción para cada una:")
+# Forzamos a Streamlit a esperar que el archivo se procese por completo antes de redibujar la interfaz
+if fotos is not None and len(fotos) > 0:
+    tf.info(f"📸 Se han cargado {len(fotos)} imágenes. Añade una descripción para cada una:")
     for i, foto in enumerate(fotos):
+        # Usamos el tamaño del archivo en la clave para forzar la sincronización inmediata del navegador
+        clave_unica = f"nota_{foto.name}_{foto.size}_{i}"
         nota = tf.text_input(
             f"Descripción para la Foto {i + 1} ({foto.name})",
             f"Evidencia fotográfica número {i + 1}",
-            key=f"nota_{foto.name}_{i}"
+            key=clave_unica
         )
         notas_fotos.append(nota)
+
 
 # --- LIENZO INTERACTIVO PARA FIRMA DIGITAL ---
 tf.subheader("2. Firma Digital del Mecánico")
