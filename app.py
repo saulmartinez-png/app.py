@@ -34,7 +34,7 @@ if fotos is not None and len(fotos) > 0:
 
 
 # --- LIENZO INTERACTIVO PARA FIRMA DIGITAL ---
-tf.subheader("2. Firma Digital del Mecánico")
+tf.subheader("2. Firma Digital del Operador")
 tf.caption("Trace su firma con el dedo o el mouse en el recuadro blanco de abajo:")
 
 try:
