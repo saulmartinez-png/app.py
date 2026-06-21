@@ -34,6 +34,7 @@ if fotos is not None and len(fotos) > 0:
 tf.subheader("2. Firma Digital del Operador")
 tf.caption("Trace su firma con el dedo o el mouse en el recuadro blanco de abajo:")
 
+canvas_result = None
 try:
     from streamlit_drawable_canvas import st_canvas
 
@@ -72,6 +73,24 @@ with tf.form("datos_informe"):
 titulos = "Informe de inspección técnica"
 
 
+# --- FUNCIÓN PARA DIBUJAR LA MARCA DE AGUA ---
+def draw_watermark(canvas, doc):
+    canvas.saveState()
+    # Usamos Helvetica-Bold con tamaño 55 para que resalte formalmente
+    canvas.setFont('Helvetica-Bold', 55)
+    # Color gris (#A0AEC0) con opacidad del 12% (alpha=0.12) para que el texto encima sea 100% legible
+    canvas.setFillColor(colors.HexColor("#A0AEC0"), alpha=0.12)
+
+    # Mover el punto de origen (0,0) al centro exacto de una hoja tamaño carta (612 x 792 puntos)
+    canvas.translate(612 / 2.0, 792 / 2.0)
+    # Rotar el lienzo en un ángulo diagonal de 45 grados
+    canvas.rotate(45)
+
+    # Dibujar el texto centrado en las nuevas coordenadas (0,0)
+    canvas.drawCentredString(0, 0, "M. DEL ANGEL S.A. DE C.V.")
+    canvas.restoreState()
+
+
 # --- LÓGICA DE GENERACIÓN DE PDF ---
 def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion, conclusiones,
               fotos, notas_fotos, firma_img_bytes, logo_bytes):
@@ -91,10 +110,9 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
     estilo_firma = ParagraphStyle('FirmaStyle', parent=styles['Normal'], fontSize=10, leading=14, alignment=1,
                                   textColor=colors.HexColor("#2D3748"))
 
-    # --- ENCABEZADO CON LOGOTIPO (PROCESADO SEGURO MEDIANTE BYTES) ---
+    # --- ENCABEZADO CON LOGOTIPO ---
     if logo_bytes is not None:
         try:
-            # Leemos las dimensiones del logo desde los bytes en memoria
             img_logo_pil = PILImage.open(logo_bytes)
             log_ancho, log_alto = img_logo_pil.size
             prop_logo = log_alto / log_ancho
@@ -102,7 +120,6 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             logo_w = 120.0
             logo_h = float(logo_w * prop_logo)
 
-            # Reset del puntero para ReportLab
             logo_bytes.seek(0)
             logo_pdf = Image(logo_bytes, width=logo_w, height=logo_h)
 
@@ -114,7 +131,6 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             ]))
             story.append(tabla_encabezado)
         except Exception:
-            # Si algo falla con la imagen en memoria, respaldamos mostrando solo el título
             story.append(Paragraph(titulos.upper(), estilo_titulo))
     else:
         story.append(Paragraph(titulos.upper(), estilo_titulo))
@@ -174,7 +190,7 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             Paragraph(f"<b>Firma del Operador</b><br/>{nombre_operador}", estilo_firma)
         ]
 
-    tabla_bloque_final = Table([[bloque_conclusiones, bloque_firma]], colWidths=(360, 170))
+    tabla_bloque_final = Table([[bloque_conclusiones, bloque_firma]], colWidths=(362, 170))
     tabla_bloque_final.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (1, 0), (1, 0), 15),
@@ -197,7 +213,7 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             img_ancho, img_alto = img_pil.size
             proporcion = img_alto / img_ancho
 
-            nuevo_ancho = 230.0
+            nuevo_ancho = 240.0
             nuevo_alto = float(nuevo_ancho * proporcion)
 
             img_byte_arr = io.BytesIO()
@@ -221,8 +237,7 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
             fila_actual.append("")
             tabla_fotos_datos.append(fila_actual)
 
-        foto_w = 265
-        anchos_fotos_blindados = (foto_w, foto_w)
+        anchos_fotos_blindados = (266, 266)
 
         tabla_fotos = Table(tabla_fotos_datos, colWidths=anchos_fotos_blindados)
         tabla_fotos.setStyle(TableStyle([
@@ -232,7 +247,8 @@ def crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista
         ]))
         story.append(tabla_fotos)
 
-    doc.build(story)
+    # --- RESTRICCIÓN CLAVE: Vinculamos la marca de agua para primera y posteriores páginas ---
+    doc.build(story, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
     buffer.seek(0)
     return buffer
 
@@ -263,7 +279,7 @@ if enviado:
             pdf_data = crear_pdf(titulos, titulo, modelo, placas, kilometraje, codigo, especialista, fecha, descripcion,
                                  conclusiones, fotos, notas_fotos, firma_bytes, logo_memoria)
 
-            tf.success("✔️ ¡Informe processedo con éxito!")
+            tf.success("✔️ ¡Informe procesado con éxito!")
             tf.download_button(
                 label="📥 Descargar Informe Técnico (PDF)",
                 data=pdf_data,
